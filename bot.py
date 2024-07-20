@@ -15,11 +15,11 @@ class Tethertod:
         self.marin_kitagawa = {key: value[0] for key, value in parse_qs(query).items()}
         user = json.loads(self.marin_kitagawa.get("user"))
         self.first_name = user.get("first_name")
-        headers = {
+        self.authorization = f"tma {query}"
+        self.base_headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "en,en-US;q=0.9",
             "Access-Control-Allow-Origin": "*",
-            "Authorization": f"tma {query}",
             "Connection": "keep-alive",
             "Host": "tap-tether.org",
             "Referer": "https://tap-tether.org/?tgWebAppStartParam=ZJHQ8GY",
@@ -28,7 +28,7 @@ class Tethertod:
             "Sec-Fetch-Site": "same-origin",
             "User-Agent": "Mozilla/5.0 (Linux; Android 10; Redmi 4A / 5A Build/QQ3A.200805.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.185 Mobile Safari/537.36",
         }
-        self.ses = httpx.AsyncClient(headers=headers, timeout=200)
+        self.ses = httpx.AsyncClient(headers=self.base_headers, timeout=200)
         self.click_min = click_min
         self.click_max = click_max
         self.interval = interval
@@ -37,18 +37,14 @@ class Tethertod:
         print(f"[{self.first_name}] {msg}")
 
     async def http(self, url, data=None):
+        headers = self.base_headers.copy()
+        headers['Authorization'] = self.authorization
         while True:
             try:
                 if data is None:
-                    res = await self.ses.get(url)
-                    open("http.log", "a", encoding="utf-8").write(f"{res.text}\n")
-                    return res
-
-                if data == "":
-                    res = await self.ses.post(url)
-                    open("http.log", "a", encoding="utf-8").write(f"{res.text}\n")
-
-                res = await self.ses.post(url, data=data)
+                    res = await self.ses.get(url, headers=headers)
+                else:
+                    res = await self.ses.post(url, headers=headers, data=data)
                 open("http.log", "a", encoding="utf-8").write(f"{res.text}\n")
                 return res
             except (httpx.HTTPError, httpx.ConnectError):
@@ -59,9 +55,6 @@ class Tethertod:
                 self.log(f"server not sending response !")
                 await asyncio.sleep(1)
                 continue
-
-    # async def withdraw(self):
-    #     data = "amount=1000000&address=&chain=ton"
 
     async def start(self):
         login_url = "https://tap-tether.org/server/login"
